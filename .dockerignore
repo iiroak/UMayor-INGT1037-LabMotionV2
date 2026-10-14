@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.git
+.env
+.env.*
+*.log
+PLAN.md
+context1.md
+context2.md
+docs

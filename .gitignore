@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+*.local
+*.tsbuildinfo
+*.log
+.env
+.env.*
+
+# Notas de planificación privadas del grupo (no se publican).
+PLAN.md
+context1.md
+context2.md

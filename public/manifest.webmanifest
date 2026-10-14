@@ -1,0 +1,14 @@
+{
+  "name": "LabMotion — Laboratorio de inclinación",
+  "short_name": "LabMotion",
+  "description": "Mide la inclinación con los sensores del smartphone y compárala con un transportador físico.",
+  "lang": "es",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8f8fa",
+  "theme_color": "#f8f8fa",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
