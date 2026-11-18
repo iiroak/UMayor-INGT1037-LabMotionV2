@@ -1,7 +1,7 @@
 {
-  "name": "LabMotion — Laboratorio de inclinación",
+  "name": "LabMotion — Laboratorios de física",
   "short_name": "LabMotion",
-  "description": "Mide la inclinación con los sensores del smartphone y compárala con un transportador físico.",
+  "description": "Mide inclinación, MRU y MRUA con los sensores del smartphone.",
   "lang": "es",
   "start_url": "/",
   "display": "standalone",
