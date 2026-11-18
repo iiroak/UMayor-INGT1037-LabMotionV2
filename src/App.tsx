@@ -4,6 +4,9 @@ import { REPO_URL } from "./config";
 import { useRecording } from "./hooks/useRecording";
 import { sensorStatusLabel, useSensors } from "./hooks/useSensors";
 import { useWakeLock } from "./hooks/useWakeLock";
+import { MotionLab } from "./labs/motion/MotionLab";
+import { useMotionLab } from "./labs/motion/useMotionLab";
+import type { LabId } from "./labs/registry";
 import { TiltLab } from "./labs/tilt/TiltLab";
 import { useTiltLab } from "./labs/tilt/useTiltLab";
 import { diagnosticsText, getDiagnostics } from "./lib/diagnostics";
@@ -52,9 +55,12 @@ function deviceLabelFrom(userAgent: string): string {
 
 export function App() {
   const [tab, setTab] = useState<Tab>("labs");
-  const [labOpen, setLabOpen] = useState(false);
+  const [openLab, setOpenLab] = useState<LabId | null>(null);
   const sensors = useSensors();
   const tilt = useTiltLab(sensors);
+  // Los laboratorios de movimiento solo escuchan el sensor mientras están abiertos.
+  const mru = useMotionLab("mru", sensors, tab === "labs" && openLab === "mru");
+  const mrua = useMotionLab("mrua", sensors, tab === "labs" && openLab === "mrua");
   const recording = useRecording(sensors);
 
   const statusLabel = sensorStatusLabel(sensors.state, sensors.signal, sensors.latest !== null);
@@ -64,19 +70,19 @@ export function App() {
   const kinematicPoints = useMemo(() => deriveXAxisKinematics(chartSamples), [chartSamples]);
 
   // Pantalla encendida mientras se mide (laboratorio abierto o captura en curso).
-  useWakeLock((tab === "labs" && labOpen && sensors.state === "active") || recording.isRecording);
+  useWakeLock((tab === "labs" && openLab !== null && sensors.state === "active") || recording.isRecording);
 
   // Botón "atrás" del sistema: cierra el laboratorio y luego vuelve a Labs.
   useBackLayer(tab !== "labs", () => setTab("labs"));
-  useBackLayer(tab === "labs" && labOpen, () => setLabOpen(false));
+  useBackLayer(tab === "labs" && openLab !== null, () => setOpenLab(null));
 
   // Al cambiar de pestaña, el contenido vuelve arriba.
-  const previousView = useRef(`${tab}:${labOpen}`);
+  const previousView = useRef(`${tab}:${openLab}`);
   useEffect(() => {
-    const key = `${tab}:${labOpen}`;
+    const key = `${tab}:${openLab}`;
     if (previousView.current !== key) document.getElementById("app-scroll-area")?.scrollTo({ top: 0 });
     previousView.current = key;
-  }, [tab, labOpen]);
+  }, [tab, openLab]);
 
   const enableSensors = async () => {
     const ok = await sensors.enable();
@@ -104,7 +110,7 @@ export function App() {
   };
 
   const openDiagnostics = () => setTab("diagnostics");
-  const inLab = tab === "labs" && labOpen;
+  const inLab = tab === "labs" && openLab !== null;
   const sensorsOk = sensors.state === "active" && sensors.signal === "receiving";
 
   return (
@@ -117,7 +123,7 @@ export function App() {
                 <button
                   type="button"
                   className="-ml-2 flex min-h-11 items-center gap-1 rounded-full px-2 text-body-medium font-medium text-text-primary active:opacity-70"
-                  onClick={() => setLabOpen(false)}
+                  onClick={() => setOpenLab(null)}
                 >
                   <ChevronLeftIcon size={22} />
                   Laboratorios
@@ -126,7 +132,7 @@ export function App() {
                 <button
                   type="button"
                   className="flex items-center gap-2.5 text-title font-semibold tracking-[-0.01em] text-text-primary"
-                  onClick={() => { setTab("labs"); setLabOpen(false); }}
+                  onClick={() => { setTab("labs"); setOpenLab(null); }}
                   aria-label="LabMotion, ir a Laboratorios"
                 >
                   <span className="grid size-8 place-items-center rounded-[11px] bg-fab text-fab-content"><SensorIcon size={20} /></span>
@@ -144,9 +150,19 @@ export function App() {
       >
         <div className="w-full min-w-0 pb-6">
           {tab === "labs" && (inLab ? (
-            <TiltLab lab={tilt} sensors={sensors} diagnostics={diagnostics} deviceLabel={deviceLabel} onDiagnostics={openDiagnostics} />
+            openLab === "tilt" ? (
+              <TiltLab lab={tilt} sensors={sensors} diagnostics={diagnostics} deviceLabel={deviceLabel} onDiagnostics={openDiagnostics} />
+            ) : (
+              <MotionLab key={openLab} lab={openLab === "mru" ? mru : mrua} sensors={sensors} deviceLabel={deviceLabel} onDiagnostics={openDiagnostics} />
+            )
           ) : (
-            <LabsScreen sensors={sensors} statusLabel={statusLabel} trials={tilt.trials} onOpenTilt={() => setLabOpen(true)} onEnable={() => void enableSensors()} />
+            <LabsScreen
+              sensors={sensors}
+              statusLabel={statusLabel}
+              trials={{ tilt: tilt.trials, mru: mru.trials, mrua: mrua.trials }}
+              onOpenLab={setOpenLab}
+              onEnable={() => void enableSensors()}
+            />
           ))}
           {tab === "magnitudes" && (
             <MagnitudesScreen latest={sensors.latest} samples={chartSamples} frequencyHz={sensors.frequencyHz} kinematicPoints={kinematicPoints} />

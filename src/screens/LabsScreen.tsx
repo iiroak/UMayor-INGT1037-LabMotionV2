@@ -1,25 +1,42 @@
 import clsx from "clsx";
-import { GUIDE_URL, V1_URL } from "../config";
+import type { ReactNode } from "react";
+import { V1_URL } from "../config";
 import type { SensorController } from "../hooks/useSensors";
-import { guidedProgress, type TiltTrial } from "../labs/tilt/tiltSession";
-import { ChevronRightIcon, FlaskIcon, ProtractorIcon } from "../ui";
+import { guidedProgress as motionProgress, type MotionTrial } from "../labs/motion/motionSession";
+import { LABS, type LabId } from "../labs/registry";
+import { guidedProgress as tiltProgress, type TiltTrial } from "../labs/tilt/tiltSession";
+import { ArrowDownIcon, ChevronRightIcon, FlaskIcon, PlayIcon, ProtractorIcon } from "../ui";
+
+const LAB_ICONS: Record<LabId, ReactNode> = {
+  tilt: <ProtractorIcon size={22} />,
+  mru: <PlayIcon size={22} />,
+  mrua: <ArrowDownIcon size={22} />,
+};
+
+export type LabTrials = { tilt: TiltTrial[]; mru: MotionTrial[]; mrua: MotionTrial[] };
+
+function progressText(id: LabId, trials: LabTrials): string {
+  const list = trials[id];
+  if (list.length === 0) return "Sin mediciones todavía";
+  const { done, target } = id === "tilt" ? tiltProgress(trials.tilt) : motionProgress(list as MotionTrial[]);
+  return `${done}/${target} pruebas guiadas${list.length > done ? ` · ${list.length} en total` : ""}`;
+}
 
 /** Pestaña Labs: portada con el estado del instrumento y los laboratorios. */
 export function LabsScreen({
   sensors,
   statusLabel,
   trials,
-  onOpenTilt,
+  onOpenLab,
   onEnable,
 }: {
   sensors: SensorController;
   statusLabel: string;
-  trials: TiltTrial[];
-  onOpenTilt: () => void;
+  trials: LabTrials;
+  onOpenLab: (id: LabId) => void;
   onEnable: () => void;
 }) {
   const active = sensors.state === "active" && sensors.signal === "receiving";
-  const { done, target } = guidedProgress(trials);
 
   return (
     <section className="px-[18px] pt-4 pb-6">
@@ -58,30 +75,43 @@ export function LabsScreen({
         )}
       </section>
 
-      <div className="section-heading"><div><p className="eyebrow">Experimentos</p><h2>Laboratorios</h2></div><span className="count-pill">1</span></div>
-      <article className="list-card">
-        <div className="list-card-mark" aria-hidden="true"><ProtractorIcon size={22} /></div>
-        <div className="list-card-copy">
-          <h3>Medición de inclinación</h3>
-          <p>Acelerómetro + transportador físico · 0°, 30°, 45° y 60°</p>
-          <p className="mt-1 font-semibold text-text-primary">{trials.length === 0 ? "Sin mediciones todavía" : `${done}/${target} pruebas guiadas${trials.length > done ? ` · ${trials.length} en total` : ""}`}</p>
-        </div>
-        <button type="button" className="list-card-action" onClick={onOpenTilt}>
-          Abrir
-          <ChevronRightIcon size={16} strokeWidth={2.4} />
-        </button>
-      </article>
-
-      <a className="mt-2 flex min-h-11 items-center justify-between rounded-[16px] px-4 text-caption font-semibold text-accent-text no-underline active:opacity-70" href={GUIDE_URL} target="_blank" rel="noreferrer">
-        Guía de laboratorio para estudiantes y docentes
-        <ChevronRightIcon size={16} />
-      </a>
-
+      <div className="section-heading"><div><p className="eyebrow">Experimentos</p><h2>Laboratorios</h2></div><span className="count-pill">{LABS.length}</span></div>
+      <div className="flex flex-col gap-2.5">
+        {LABS.map((lab) => (
+          <article key={lab.id} className="list-card">
+            <div className="list-card-mark" aria-hidden="true">{LAB_ICONS[lab.id]}</div>
+            <div className="list-card-copy">
+              <h3>
+                {lab.title}
+                {lab.status === "piloto" && <span className="ml-2 inline-flex min-h-5 items-center rounded-full bg-warning-soft px-2 align-middle text-[11px] font-bold text-warning">Piloto</span>}
+              </h3>
+              <p>{lab.summary}</p>
+              <p className="mt-1 font-semibold text-text-primary">{progressText(lab.id, trials)}</p>
+            </div>
+            <button type="button" className="list-card-action" onClick={() => onOpenLab(lab.id)}>
+              Abrir
+              <ChevronRightIcon size={16} strokeWidth={2.4} />
+            </button>
+          </article>
+        ))}
+      </div>
+      <p className="m-0 mt-2 px-1 text-micro text-text-tertiary">
+        «Piloto»: el laboratorio funciona, pero todavía se está validando con teléfonos reales; trata sus cifras como estimaciones.
+      </p>
+      <nav className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 px-1" aria-label="Guías de laboratorio">
+        <span className="text-caption text-text-secondary">Guías para estudiantes y docentes:</span>
+        {LABS.map((lab) => (
+          <a key={lab.id} className="inline-flex min-h-11 items-center gap-1 text-caption font-semibold text-accent-text no-underline active:opacity-70" href={lab.guideUrl} target="_blank" rel="noreferrer">
+            {lab.guideLabel}
+            <ChevronRightIcon size={14} />
+          </a>
+        ))}
+      </nav>
       <article className="list-card is-disabled mt-2.5">
         <div className="list-card-mark" aria-hidden="true"><FlaskIcon size={22} /></div>
         <div className="list-card-copy">
           <h3>Próximos módulos</h3>
-          <p>Giro acumulado, MRU/MRUA y péndulo. Pendientes: no están implementados en esta versión.</p>
+          <p>Giro acumulado y péndulo. Pendientes: no están implementados en esta versión.</p>
         </div>
       </article>
 
